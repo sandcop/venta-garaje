@@ -100,7 +100,7 @@
 
   .lightbox-backdrop { position:fixed; inset:0; background:rgba(20,14,8,0.82); display:flex; align-items:center; justify-content:center; z-index:60; padding:24px; animation:fadeIn .15s ease-out; }
   @keyframes fadeIn { from{ opacity:0; } to{ opacity:1; } }
-  .lightbox-content { max-width:480px; width:100%; animation:popIn 0.2s ease-out; }
+  .lightbox-content { max-width:480px; width:100%; animation:popIn 0.2s ease-out; position:relative; }
   .lightbox-photo { position:relative; width:100%; aspect-ratio:1/1; background:#3A2E20; border-radius:18px; overflow:hidden; display:flex; align-items:center; justify-content:center; }
   .lightbox-photo img { width:100%; height:100%; object-fit:contain; background:#FFF3E0; }
   .lightbox-photo .placeholder { color:#8a7660; font-size:15px; }
@@ -560,8 +560,8 @@ function openPhotoViewer(p) {
         <div class="lightbox-photo">
           ${photoHtml}
           ${p.sold ? '<div class="lightbox-sold">Vendido</div>' : ""}
-          <button class="lightbox-close" id="lbClose" aria-label="Cerrar">✕</button>
         </div>
+        <button class="lightbox-close" id="lbClose" aria-label="Cerrar">✕</button>
         <div class="lightbox-info">
           <div>
             <div class="name">${esc(p.name)}</div>

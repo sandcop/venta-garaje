@@ -31,6 +31,8 @@
   .header .bubble1 { position:absolute; top:-30px; right:-30px; width:160px; height:160px; border-radius:50%; background:rgba(255,255,255,0.15); }
   .header .bubble2 { position:absolute; bottom:-50px; left:-20px; width:120px; height:120px; border-radius:50%; background:rgba(255,255,255,0.12); }
   .header-inner { position:relative; max-width:900px; margin:0 auto; text-align:center; }
+  .header-edit-btn { position:absolute; top:-4px; right:0; width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,0.28); border:1.5px solid rgba(255,255,255,0.55); color:#fff; font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:3; }
+  .header-edit-btn:hover { background:rgba(255,255,255,0.42); }
   .header .badge { display:inline-block; background:#fff; color:#D9480F; font-weight:700; font-size:13px; letter-spacing:1.5px; padding:6px 16px; border-radius:999px; text-transform:uppercase; box-shadow:0 4px 10px rgba(0,0,0,0.12); }
   .header h1 { font-family:'Fredoka',sans-serif; font-size:clamp(34px,7vw,56px); color:#fff; margin:14px 0 6px; text-shadow:0 3px 0 rgba(0,0,0,0.12); line-height:1.05; }
   .header p { color:#fff2df; font-size:17px; margin:0; font-weight:500; }
@@ -118,9 +120,10 @@
 <div class="header">
   <div class="bubble1"></div><div class="bubble2"></div>
   <div class="header-inner">
-    <div class="badge">Venta de Garaje</div>
-    <h1>¡Todo debe salir!</h1>
-    <p>16 de Julio · Todo el día · Edificio TNC, Sargento Aldea 315</p>
+    <button class="header-edit-btn" id="headerEditBtn" title="Editar título" aria-label="Editar título">✎</button>
+    <div class="badge" id="hdrBadge">Venta de Garaje</div>
+    <h1 id="hdrTitle">¡Todo debe salir!</h1>
+    <p id="hdrSubtitle">16 de Julio · Todo el día · Edificio TNC, Sargento Aldea 315</p>
   </div>
 </div>
 
@@ -174,6 +177,9 @@ const ADMIN_EMAIL = "admin@ventagarage.local";
 const CATEGORIES = ["Todos", "Ropa", "Muebles", "Electrónica", "Hogar", "Juguetes", "Libros", "Otros"];
 const CURRENCY = "$"; // cambia a "CLP $" o lo que prefieras
 const MAX_PRODUCTS = 300; // tope de productos activos; ajusta este número si necesitas más o menos
+const DEFAULT_BADGE = "Venta de Garaje";
+const DEFAULT_TITLE = "¡Todo debe salir!";
+const DEFAULT_SUBTITLE = "16 de Julio · Todo el día · Edificio TNC, Sargento Aldea 315";
 /* ============================================================ */
 
 let db = null, storage = null, auth = null;
@@ -182,6 +188,7 @@ let activeCategory = "Todos";
 let isAdmin = false;
 let pendingAction = null; // acción que espera autenticación
 let firstSnapshot = false;
+let currentEventConfig = { badge: DEFAULT_BADGE, title: DEFAULT_TITLE, subtitle: DEFAULT_SUBTITLE };
 
 const $ = (id) => document.getElementById(id);
 const grid = $("grid"), filterBar = $("filterBar"), emptyMsg = $("emptyMsg");
@@ -203,6 +210,18 @@ function init() {
   db.enablePersistence({ synchronizeTabs: true }).catch(() => {}); // caché offline
 
   auth.onAuthStateChanged(u => { isAdmin = !!u; });
+
+  db.collection("config").doc("evento").onSnapshot(doc => {
+    const d = doc.exists ? doc.data() : {};
+    currentEventConfig = {
+      badge: d.badge || DEFAULT_BADGE,
+      title: d.title || DEFAULT_TITLE,
+      subtitle: d.subtitle || DEFAULT_SUBTITLE
+    };
+    $("hdrBadge").textContent = currentEventConfig.badge;
+    $("hdrTitle").textContent = currentEventConfig.title;
+    $("hdrSubtitle").textContent = currentEventConfig.subtitle;
+  });
 
   db.collection("productos").orderBy("createdAt", "asc").onSnapshot(snap => {
     products = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -335,6 +354,40 @@ function openPasswordModal() {
   };
   okBtn.onclick = submit;
   input.onkeydown = e => { if (e.key === "Enter") submit(); };
+}
+
+$("headerEditBtn").onclick = () => requireAdmin(openEditHeaderModal);
+
+function openEditHeaderModal() {
+  openModal(`
+    <h2>Editar título del cartel</h2>
+    <div class="sub">Cambia la etiqueta, el título y la fecha/lugar. Se actualiza para todos al instante.</div>
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <input type="text" id="hdBadge" placeholder="Etiqueta (ej. Venta de Garaje)" maxlength="40">
+      <input type="text" id="hdTitle" placeholder="Título (ej. ¡Todo debe salir!)" maxlength="60">
+      <input type="text" id="hdSub" placeholder="Fecha y lugar" maxlength="120">
+    </div>
+    <div class="row">
+      <button class="btn btn-sec" data-close>Cancelar</button>
+      <button class="btn btn-pri" id="hdOk">Guardar</button>
+    </div>
+  `, true);
+  $("hdBadge").value = currentEventConfig.badge;
+  $("hdTitle").value = currentEventConfig.title;
+  $("hdSub").value = currentEventConfig.subtitle;
+  $("hdOk").onclick = async () => {
+    const badge = $("hdBadge").value.trim() || DEFAULT_BADGE;
+    const title = $("hdTitle").value.trim() || DEFAULT_TITLE;
+    const subtitle = $("hdSub").value.trim() || DEFAULT_SUBTITLE;
+    closeModal();
+    try {
+      await db.collection("config").doc("evento").set({ badge, title, subtitle }, { merge: true });
+      toast("Cartel actualizado ✅");
+    } catch (e) {
+      console.error(e);
+      toast("No se pudo guardar. Intenta de nuevo.");
+    }
+  };
 }
 
 /* ---------- Menú de acciones ---------- */
